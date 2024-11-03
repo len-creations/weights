@@ -32,7 +32,7 @@ def upload_exam_files(request):
             # Process the uploaded files
             handle_exam_files(exam_parameters_path, employee_scores_path)
 
-            return HttpResponse('Files uploaded and processed successfully.')
+            return HttpResponse('/')
     else:
         form = UploadExamFilesForm()
 
@@ -83,7 +83,7 @@ def handle_exam_files(exam_parameters_path, employee_scores_path):
         )
 
         # Loop through the exams and save the scores
-        for exam_name in ['Stacker Crane', 'EWS', 'H9TV', 'ULD & BBTV']:  # Adjust according to your exam columns
+        for exam_name in ['Stacker Crane', 'EWS', 'H9TV', 'ULD & BBTV']:  
             score = row[exam_name]
 
             try:
