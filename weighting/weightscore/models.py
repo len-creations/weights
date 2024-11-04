@@ -11,7 +11,7 @@ class Exam(models.Model):
         return self.name
     
 class Employee(models.Model):
-    staff_number = models.IntegerField()
+    staff_number =models.CharField(max_length=300)
     name = models.CharField(max_length=100)
     Team=models.CharField(max_length=100)
     Facility=models.CharField(max_length=100)
