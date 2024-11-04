@@ -6,7 +6,7 @@ import os
 from .models import Exam, Employee, ExamScore
 from .forms import UploadExamFilesForm
 def index(request):
-    return render(request,'weightscore/upload_exam_files.html')
+    return render(request,'weightscore/Index.html')
 
 def upload_exam_files(request):
     if request.method == 'POST':
