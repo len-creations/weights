@@ -1,151 +1,191 @@
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
-from .forms import UploadExamFilesForm
+from .forms import UploadExamFilesForm,UploademployeeFilesForm
 import pandas as pd
-import os
-import openpyxl
 from .models import Exam, Employee, ExamScore
 from .forms import UploadExamFilesForm
-def index(request):
-    return render(request,'weightscore/Index.html')
+from django.core.paginator import Paginator
+from django.db.models import Sum,Q
 
-def extract_data(request):
+def index(request):
+    return render(request,'weightscore/index.html')
+
+def extract_param_data(request):
     if request.method == 'POST':
         form = UploadExamFilesForm(request.POST, request.FILES)
-        extracted_data = []  # List to store extracted data
-
         if form.is_valid():
-            print("Form is valid")
-            # Handle the uploaded file
             file = request.FILES['exam_parameters_file']
-            wb = openpyxl.load_workbook(file)
-            sheet = wb.Cargo
+            df = pd.read_excel(file, sheet_name='Cargo')
+            df.columns = df.columns.str.strip() 
+            # Print the column names to inspect for any spaces or formatting issues
+            print(df.columns)
 
-            for row in sheet.iter_rows(min_row=1, values_only=True):
-                name = row[0]
-                difficulty_rating = row[1]
-                max_difficulty = row[2]
-                weight = row[3]
+            for _, row in df.iterrows():
+                exam_name = row['Exam']
+                difficulty_rating = row['Difficulty rating']
+                max_difficulty = row['Max difficulty']
+                weight = row['Weight']
 
-                # Append extracted data to the list
-                extracted_data.append({
-                    'name': name,
-                    'difficulty_rating': difficulty_rating,
-                    'max_difficulty': max_difficulty,
-                    'weight': weight
-                })
-
-                print(f"Extracted Data - Name: {name}, Difficulty Rating: {difficulty_rating}, Max Difficulty: {max_difficulty}, Weight: {weight}")
-
-            # Save extracted data to the database
-            for data in extracted_data:
-                if all([data['name'], data['difficulty_rating'], data['max_difficulty'], data['weight'] is not None]):
-                    Exam.objects.create(
-                        name=data['name'],
-                        difficulty_rating=data['difficulty_rating'],
-                        max_difficulty=data['max_difficulty'],
-                        weight=data['weight']
-                    )
-            
-            print("Data successfully saved to the database")
-            return redirect('index')  # Redirect to an appropriate page after saving data
-
+                # Attempt to save the data
+                Exam.objects.update_or_create(
+                    exam_name=exam_name,
+                    defaults={
+                        'difficulty_rating': difficulty_rating,
+                        'max_difficulty': max_difficulty,
+                        'weight': weight
+                    }
+                )
     else:
         form = UploadExamFilesForm()
     
-    return render(request, 'weightscore/Index.html', {'form': form})
+    return render(request, 'weightscore/addingdata.html', {'form': form})
 
-              
-def upload_exam_files(request):
+def extract_employee_data(request):
+
     if request.method == 'POST':
-        form = UploadExamFilesForm(request.POST, request.FILES)
-        
+        form = UploademployeeFilesForm(request.POST, request.FILES)
         if form.is_valid():
-            # Get the uploaded files
-            exam_parameters_file = request.FILES['exam_parameters_file']
-            employee_scores_file = request.FILES['employee_scores_file']
-            
-            # Save the files temporarily to process them
-            exam_parameters_path = os.path.join('/tmp', exam_parameters_file.name)
-            employee_scores_path = os.path.join('/tmp', employee_scores_file.name)
-            
-            with open(exam_parameters_path, 'wb+') as destination:
-                for chunk in exam_parameters_file.chunks():
-                    destination.write(chunk)
+            file = request.FILES['employee_score_file']
+            df = pd.read_excel(file, sheet_name='Sheet1')
+            df.columns = df.columns.str.strip() 
+            # Print the column names to inspect for any spaces or formatting issues
+            # print(df.columns)
+            exam_names_in_db = Exam.objects.values_list('exam_name', flat=True)
 
-            with open(employee_scores_path, 'wb+') as destination:
-                for chunk in employee_scores_file.chunks():
-                    destination.write(chunk)
-            
-            # Process the uploaded files
-            handle_exam_files(exam_parameters_path, employee_scores_path)
+            for _, row in df.iterrows():
+                staff_number = row['Staff number']
+                employee_name = row['Employee Name']
+                facility = row['Facility']
+                team = row['Team']
+                exam_date = pd.to_datetime(row['date'], format='%d-%mmm-%yyyy').date() 
 
-            return HttpResponse('index')
-    else:
-        form = UploadExamFilesForm()
-
-    return render(request, 'weightscore/upload_exam_files.html', {'form': form})
-
-def handle_exam_files(exam_parameters_path, employee_scores_path):
-    # --- Read the exam parameters Excel file ---
-    exam_params_df = pd.read_excel(exam_parameters_path)
-
-    # Loop through the exam parameters and save/update them in the database
-    for index, row in exam_params_df.iterrows():
-        exam_name = row['Exam'] 
-        difficulty_rating = row['Difficulty rating']
-        max_difficulty = row['Max difficulty']
-        weight = row['Weight']
-
-        # Create or update Exam object
-        exam, created = Exam.objects.update_or_create(
-            name=exam_name,
-            defaults={
-                'difficulty_rating': difficulty_rating,
-                'max_difficulty': max_difficulty,
-                'weight': weight
-            }
-        )
-
-    print("Exam Parameters Processed and Saved to Database")
-
-    # --- Read the employee scores Excel file ---
-    employee_scores_df = pd.read_excel(employee_scores_path)
-    print(employee_scores_df.columns)
-
-    # Loop through the employee scores and save them into the database
-    for index, row in employee_scores_df.iterrows():
-        staff_number = row['Staff number']
-        name = row['Employee Name']
-        team = row['Team']
-
-        # Create or update Employee object
-        employee, created = Employee.objects.update_or_create(
-            staff_number=staff_number,
-            defaults={'name': name, 'Team': team}
-        )
-
-        # Loop through the exams and save the scores
-        for exam_name in ['Stacker Crane', 'EWS/ EQRH', 'H9TV', 'ULD & BBTV','FMC Deck ','Tilting Deck ']:
-            exam_name = exam_name.strip()  
-            score = row[exam_name]
-
-            try:
-                # Fetch the corresponding Exam object
-                exam = Exam.objects.get(name=exam_name)
-
-                # Calculate the weighted score based on the weight
-                weighted_score = score * exam.weight
-
-                # Create or update the ExamScore object
-                ExamScore.objects.update_or_create(
-                    employee=employee,
-                    exam=exam,
-                    defaults={'score': score, 'weighted_score': weighted_score}
+                employee, created = Employee.objects.update_or_create(
+                    staff_number=staff_number,
+                    defaults={'name': employee_name, 'Facility': facility, 'Team': team}
                 )
 
-            except Exam.DoesNotExist:
-                print(f"Exam '{exam_name}' does not exist in the database.")
-                continue
+                for exam_name in df.columns:
+                    # Skip the non-exam columns like 'Staff number', 'Employee Name', etc.
+                    if exam_name in ['Staff number', 'Employee Name', 'Facility', 'Team', 'date']:
+                        continue
 
-    print("Employee Scores Processed and Saved to Database")
+                    if exam_name not in exam_names_in_db:
+                        continue
+                    
+                    score = row[exam_name]
+    
+                    if pd.notnull(score):  # Skip rows with missing exam scores
+                        try:
+                            # Assuming score is a percentage (e.g., '0.81')
+                            score = float(score) * 100.0
+                        except ValueError:
+                            score = 0  
+                        try:
+                            exam = Exam.objects.get(exam_name=exam_name)
+                        except Exam.DoesNotExist:
+                            print(f"Exam {exam_name} not found in database!")
+                            continue 
+                        # Create the ExamScore object
+                        print(score)
+                        ExamScore.objects.update_or_create(
+                            employee=employee,
+                            exam=exam,
+                            score=score,
+                            exam_date=exam_date
+                        )    
+    else:
+        form = UploademployeeFilesForm()
+    
+    return render(request, 'weightscore/addingdata.html', {'form': form})
+
+def employee_performance(request):
+    employees = Employee.objects.all()
+    performance_data = []
+    for employee in employees:
+           exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+           total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
+           performance_data.append({
+            'employee': employee,
+            'exam_scores': exam_scores,
+            'total_weighted_score': total_weighted_score,
+        })
+    paginator = Paginator(performance_data, 10) 
+    page = request.GET.get('page')
+    performance_data = paginator.get_page(page)
+    page_obj = paginator.get_page(page)
+    return render(request, 'weightscore/index.html', {
+         "page_obj": page_obj
+    })
+
+def search(request):
+    query = request.GET.get('q', '')
+    results = []
+
+    if query:
+        # Search employees based on query (name, staff number, or team)
+        employee_results = Employee.objects.filter(
+            Q(name__icontains=query) | 
+            Q(staffnumber__icontains=query) | 
+            Q(Team__icontains=query)
+        )
+
+        for employee in employee_results:
+            # Fetch exam scores for the employee where score > 1
+            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+            
+            # Calculate total weighted score
+            total_weighted_score = exam_scores.aggregate(
+                total_weighted_score=Sum('weighted_score')
+            )['total_weighted_score'] or 0
+            
+            results.append({
+                'employee': employee,
+                'exam_scores': exam_scores,
+                'total_weighted_score': total_weighted_score
+            })
+        
+        # Paginate the results if there are many
+        paginator = Paginator(results, 10)  # 10 results per page
+        page = request.GET.get('page')
+        results_page = paginator.get_page(page)
+
+        context = {
+            'query': query,
+            'results': results_page,  # Use paginated results
+        }
+
+    else:
+        # If there's no search query, return an empty context
+        context = {
+            'query': '',
+            'results': results,
+        }
+
+    return render(request, 'weightscore/index.html', context)
+            
+       
+
+
+# def search(request):
+#     query = request.GET.get('q')
+#     results = []
+#     if query:
+#         # Search in Profile, TrainingModule,Exam,TrainingDocuments
+#         employee_results = Employee.objects.filter(
+#             Q(name__icontains=query) | 
+#             Q(staffnumber__icontains=query) | 
+#             Q(Team__icontains=query)
+#         )
+#         for employee in employee_results:
+#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
+#            results.append({
+#                  'employee': employee,
+#                  'exam_scores': exam_scores,
+#                  'total_weighted_score': total_weighted_score
+#             })
+#         context = {
+#         'query': query,
+#         'results': results,
+#            }
+#         return render(request, 'Training/index.html', context)

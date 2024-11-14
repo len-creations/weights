@@ -1,0 +1,52 @@
+{% extends 'weightscore/Layout.html' %}
+{% block body %}
+<h1>Employee Performance</h1>
+<form method="get" action="{% url 'search' %}" class="search">
+    <input type="text" name="q" class="form-control me-2" placeholder="Search by Staff Number, Name, or Team" value="{{ query }}">
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Staff Number</th>
+            <th>Name</th>
+            <th>Exam</th>
+            <th>Score</th>
+            <th>Weighted Score</th>
+            <th>Exam Date</th>
+            <th>Total Weighted Score</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for performance in page_obj %}
+        {% for exam_score in performance.exam_scores %}
+                <tr>
+                    <td>{{ performance.employee.staff_number }}</td>
+                    <td>{{ performance.employee.name }}</td>
+                    <td>{{ exam_score.exam.exam_name }}</td>
+                    <td>{{ exam_score.score|floatformat:2 }}</td>
+                    <td>{{ exam_score.weighted_score|floatformat:2 }}</td>
+                    <td>{{ exam_score.exam_date }}</td>
+                    {% if loop.first %}
+                        <td rowspan="{{ performance.exam_scores.count }}">{{ performance.total_weighted_score|floatformat:2 }}</td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+        {% empty %}
+            <tr>
+                <td colspan="7">No performance data found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% if page_obj.has_next %}
+    <div><button>
+    <a href="?page={{ page_obj.next_page_number }}">next</a>
+    {% endif %}
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}">previous</a>
+    {% endif %}
+</div>
+
+{% endblock %}

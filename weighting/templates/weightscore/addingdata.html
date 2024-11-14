@@ -1,0 +1,23 @@
+{% extends 'weightscore/Layout.html' %}
+{% block body %}
+<a href="#">
+<button type="submit" class="btn btn-primary">addfiles</button>
+</a>
+<form method="post" action="{% url 'extract_employee_data' %}" enctype="multipart/form-data" class="mt-3">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="employee_scores_file">Employee Scores File:</label>
+        <input type="file" name="employee_score_file" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload</button>
+</form>
+
+<form method="post" action="{% url 'extract_param_data' %}" enctype="multipart/form-data" class="mt-3">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="exam_parameters_file">Exam Parameters File:</label>
+        <input type="file" name="exam_parameters_file" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload Parameters</button>
+</form>
+{% endblock %}
