@@ -1,0 +1,55 @@
+{% extends 'weightscore/Layout.html' %}
+{% block body %}
+<form method="get" action="{% url 'search' %}" class="search">
+    <input type="text" name="q" class="form-control me-2" placeholder="Search by Staff Number, Name, or Team" value="{{ query }}">
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Staff Number</th>
+            <th>Total Weighted Score</th>
+            <th>Exam</th>
+            <th>Score</th>
+            <th>Weighted Score</th>
+            <th>Exam Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for performance in results %}
+            <tr>
+                <td rowspan="{{ performance.exam_scores|length }}" class="align-middle">{{ performance.employee.name }}</td>
+                <td rowspan="{{ performance.exam_scores|length }}" class="align-middle">{{ performance.employee.staff_number }}</td>
+                <td rowspan="{{ performance.exam_scores|length }}" class="align-middle text-center">{{ performance.total_weighted_score|floatformat:2 }}</td>
+
+                {% for exam_score in performance.exam_scores %}
+                    <td>{{ exam_score.exam.exam_name  }}</td>  
+                    <td>{{ exam_score.score|floatformat:2 }}%</td> 
+                    <td>{{ exam_score.weighted_score|floatformat:2 }}</td> 
+                    <td>{{ exam_score.exam_date }}</td>
+                </tr>
+                {% endfor %}
+        {% empty %}
+            <tr>
+                <td colspan="7">No performance data found for the query "{{ query }}."</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="pagination">
+    {% if results.has_previous %}
+        <a href="?q={{ query }}&page=1">First</a>
+        <a href="?q={{ query }}&page={{ results.previous_page_number }}">Previous</a>
+    {% endif %}
+
+    <span>Page {{ results.number }} of {{ results.paginator.num_pages }}</span>
+
+    {% if results.has_next %}
+        <a href="?q={{ query }}&page={{ results.next_page_number }}">Next</a>
+        <a href="?q={{ query }}&page={{ results.paginator.num_pages }}">Last</a>
+    {% endif %}
+</div>
+<a href="{% url 'employee_performance' %}" class="btn btn-primary">Home</a>
+{% endblock %}

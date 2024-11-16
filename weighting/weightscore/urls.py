@@ -13,5 +13,3 @@ urlpatterns = [
     # path('upload-exam/',views.extract_data, name='upload_exam'),
 
 ]
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

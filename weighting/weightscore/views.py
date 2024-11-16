@@ -6,6 +6,7 @@ from .models import Exam, Employee, ExamScore
 from .forms import UploadExamFilesForm
 from django.core.paginator import Paginator
 from django.db.models import Sum,Q
+from operator import itemgetter
 
 def index(request):
     return render(request,'weightscore/index.html')
@@ -97,26 +98,71 @@ def extract_employee_data(request):
         form = UploademployeeFilesForm()
     
     return render(request, 'weightscore/addingdata.html', {'form': form})
-
 def employee_performance(request):
+    filter_exam_count = request.GET.get('exam_count')  # Get the filter value for number of exams
     employees = Employee.objects.all()
+
     performance_data = []
     for employee in employees:
-           exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-           total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
-           performance_data.append({
+        # Get the exam scores for the employee (filtering for exams with a score greater than 1)
+        exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+        
+        # If a filter is provided, only consider employees with the specified number of exams
+        if filter_exam_count:
+            exam_count = exam_scores.count()
+            if int(filter_exam_count) != exam_count:
+                continue 
+
+        # Calculate total weighted score
+        total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
+        performance_data.append({
             'employee': employee,
             'exam_scores': exam_scores,
             'total_weighted_score': total_weighted_score,
         })
-    paginator = Paginator(performance_data, 10) 
+
+    # Sort the performance data by total weighted score in descending order
+    performance_data = sorted(performance_data, key=itemgetter('total_weighted_score'), reverse=True)
+
+    # Paginate the results
+    paginator = Paginator(performance_data, 10)  # 10 results per page
     page = request.GET.get('page')
     performance_data = paginator.get_page(page)
-    page_obj = paginator.get_page(page)
-    return render(request, 'weightscore/index.html', {
-         "page_obj": page_obj
-    })
 
+    # Check if the filter is applied and render accordingly
+    if filter_exam_count:
+        return render(request, 'weightscore/filter.html', {
+            "page_obj": performance_data,
+            "filter_exam_count": filter_exam_count  
+        })
+    else:
+        # If no filter is applied, render the index page
+        return render(request, 'weightscore/index.html', {
+            "page_obj": performance_data,
+            "filter_exam_count": filter_exam_count  
+        })
+# def employee_performance(request):
+#     employees = Employee.objects.all()
+#     performance_data = []
+#     for employee in employees:
+#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
+#            performance_data.append({
+#             'employee': employee,
+#             'exam_scores': exam_scores,
+#             'total_weighted_score': total_weighted_score,
+#         })
+#     performance_data = sorted(performance_data, key=itemgetter('total_weighted_score'), reverse=True)      
+#     paginator = Paginator(performance_data, 10) 
+#     page = request.GET.get('page')
+#     performance_data = paginator.get_page(page)
+#     page_obj = paginator.get_page(page)
+#     return render(request, 'weightscore/index.html', {
+#          "page_obj": page_obj
+#     })
+
+
+       
 def search(request):
     query = request.GET.get('q', '')
     results = []
@@ -125,7 +171,7 @@ def search(request):
         # Search employees based on query (name, staff number, or team)
         employee_results = Employee.objects.filter(
             Q(name__icontains=query) | 
-            Q(staffnumber__icontains=query) | 
+            Q(staff_number__icontains=query) | 
             Q(Team__icontains=query)
         )
 
@@ -137,6 +183,15 @@ def search(request):
             total_weighted_score = exam_scores.aggregate(
                 total_weighted_score=Sum('weighted_score')
             )['total_weighted_score'] or 0
+
+            # If there are no exam scores, add a default set of values
+            if not exam_scores:
+                exam_scores = [{
+                    'exam_name': 'None',
+                    'score': 0,
+                    'weighted_score': 0,
+                    'exam_date': 'N/A'
+                }]
             
             results.append({
                 'employee': employee,
@@ -145,47 +200,19 @@ def search(request):
             })
         
         # Paginate the results if there are many
-        paginator = Paginator(results, 10)  # 10 results per page
+        paginator = Paginator(results, 10)
         page = request.GET.get('page')
         results_page = paginator.get_page(page)
 
         context = {
             'query': query,
-            'results': results_page,  # Use paginated results
+            'results': results_page,
         }
 
     else:
-        # If there's no search query, return an empty context
         context = {
             'query': '',
             'results': results,
         }
 
-    return render(request, 'weightscore/index.html', context)
-            
-       
-
-
-# def search(request):
-#     query = request.GET.get('q')
-#     results = []
-#     if query:
-#         # Search in Profile, TrainingModule,Exam,TrainingDocuments
-#         employee_results = Employee.objects.filter(
-#             Q(name__icontains=query) | 
-#             Q(staffnumber__icontains=query) | 
-#             Q(Team__icontains=query)
-#         )
-#         for employee in employee_results:
-#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
-#            results.append({
-#                  'employee': employee,
-#                  'exam_scores': exam_scores,
-#                  'total_weighted_score': total_weighted_score
-#             })
-#         context = {
-#         'query': query,
-#         'results': results,
-#            }
-#         return render(request, 'Training/index.html', context)
+    return render(request, 'weightscore/search.html', context)
