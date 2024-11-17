@@ -20,4 +20,28 @@
     </div>
     <button type="submit" class="btn btn-primary">Upload Parameters</button>
 </form>
+
+<form method="post" action="{% url 'get_employee_data' %}" enctype="multipart/form-data" class="mt-3">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="employee_file">Employee detail:</label>
+        <input type="file" name="employee_file" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload employee details</button>
+</form>
+<div>
+    <form method="post" action="{% url 'training_module_master_list' %}" enctype="multipart/form-data" class="mt-3">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="Training_module_file">Training modules:</label>
+            <input type="file" name="Training_module_file" required id="Training_module_file">
+            {% if form.errors %}
+                <div class="alert alert-danger">
+                    {{ form.errors }}
+                </div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Upload Training modules</button>
+    </form>
+</div>
 {% endblock %}

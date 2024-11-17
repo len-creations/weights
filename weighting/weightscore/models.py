@@ -1,6 +1,9 @@
 from django.db import models
 from datetime import date
+from django.utils import timezone
+from django.db.models import Count
 # Create your models here.
+
 class Exam(models.Model):
     exam_name= models.CharField(max_length=100)
     difficulty_rating = models.IntegerField()
@@ -14,10 +17,14 @@ class Employee(models.Model):
     staff_number =models.CharField(max_length=300)
     name = models.CharField(max_length=100)
     Team=models.CharField(max_length=100)
+    designation=models.CharField(max_length=100,default="Technician")
     Facility=models.CharField(max_length=100)
 
     def __str__(self):
         return self.name
+    def count_completed_trainings(self):
+        """Returns the count of completed trainings employee."""
+        return self.completed_trainings.filter(date_completed__isnull=False).count()
 
 class ExamScore(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
@@ -33,3 +40,26 @@ class ExamScore(models.Model):
 
     def __str__(self):
         return f"{self.employee.name} - {self.exam.exam_name}"
+    
+class TrainingModule(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    code = models.CharField(max_length=10, unique=True)
+    category = models.CharField(max_length=20, default="equipment")
+    file = models.FileField(upload_to='Training/uploads/', blank=True, null=True)
+    facility=models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    total_pages = models.IntegerField(default=0)
+
+    def __str__(self):
+        return self.title
+    
+class CompletedTraining(models.Model):
+    employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='completed_trainings')
+    training_module = models.ForeignKey('TrainingModule', on_delete=models.CASCADE, related_name='completed_by_profiles')
+    date_completed = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('employee', 'training_module')
+        ordering = ['-date_completed']

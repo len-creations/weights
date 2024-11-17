@@ -1,15 +1,15 @@
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
-from .forms import UploadExamFilesForm,UploademployeeFilesForm
+from .forms import UploadExamFilesForm,UploademployeeFilesForm,employeedetailsFilesForm,TrainingModuleForm
 import pandas as pd
 from .models import Exam, Employee, ExamScore
 from .forms import UploadExamFilesForm
 from django.core.paginator import Paginator
 from django.db.models import Sum,Q
 from operator import itemgetter
-
+import logging
 def index(request):
-    return render(request,'weightscore/index.html')
+    return render(request,'weightscore/addingdata.html')
 
 def extract_param_data(request):
     if request.method == 'POST':
@@ -98,8 +98,68 @@ def extract_employee_data(request):
         form = UploademployeeFilesForm()
     
     return render(request, 'weightscore/addingdata.html', {'form': form})
+
+def get_employee_data(request):
+
+    if request.method == 'POST':
+        form = employeedetailsFilesForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['employee_file']
+            df = pd.read_excel(file, sheet_name='Sheet1')
+            df.columns = df.columns.str.strip()
+            # print(df.columns)
+            for index, row in df.iterrows():
+                staff_number = row['Staff number']
+                name = row['Employee Name']
+                team = row['Team']
+                designation = row['designation']
+                facility = row['Facility']
+
+                # Check if the Employee already exists by staff_number
+                employee, created = Employee.objects.get_or_create(
+                    staff_number=staff_number,
+                    defaults={
+                        'name': name,
+                        'Team': team,
+                        'designation': designation,
+                        'Facility': facility,
+                    }
+                )
+
+                # If the Employee exists, update the data (excluding staff_number)
+                if not created:
+                    employee.name = name
+                    employee.Team = team
+                    employee.designation = designation
+                    employee.Facility = facility
+                    employee.save()  # Save the updated record
+
+            # Optional: Print or log data for debugging
+            print(f"Processed {len(df)} records.")
+
+    else:
+        form = employeedetailsFilesForm()
+
+    return render(request, 'weightscore/addingdata.html', {'form': form})
+
+
+def training_module_master_list(request):
+    if request.method == 'POST':
+        form = TrainingModuleForm(request.POST, request.FILES)
+
+        if form.is_valid():
+            file = request.FILES['Training_module_file']
+            df = pd.read_excel(file, sheet_name='Sheet1')
+            df.columns = df.columns.str.strip()
+            print(df.columns)
+        
+    else:
+        form = TrainingModuleForm()
+
+    return render(request, 'weightscore/addingdata.html', {'form': form})
+
 def employee_performance(request):
-    filter_exam_count = request.GET.get('exam_count')  # Get the filter value for number of exams
+    filter_exam_count = request.GET.get('exam_count')
     employees = Employee.objects.all()
 
     performance_data = []
@@ -141,6 +201,8 @@ def employee_performance(request):
             "page_obj": performance_data,
             "filter_exam_count": filter_exam_count  
         })
+
+
 # def employee_performance(request):
 #     employees = Employee.objects.all()
 #     performance_data = []
