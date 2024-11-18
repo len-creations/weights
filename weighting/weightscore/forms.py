@@ -12,3 +12,6 @@ class employeedetailsFilesForm(forms.Form):
 
 class TrainingModuleForm(forms.Form):
     Training_module_file = forms.FileField(label="Training Module File")
+
+class CompletedTrainingModuleForm(forms.Form):
+    Completed_trainings_file=forms.FileField(label="Completed trainings")

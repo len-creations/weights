@@ -6,6 +6,9 @@
     <input type="text" name="q" class="form-control me-2" placeholder="Search by Staff Number, Name, or Team" value="{{ query }}">
     <button type="submit" class="btn btn-primary">Search</button>
 </form>
+<div>
+<a href="{% url 'view_completed_trainings' %}">see completed trainings</a>
+</div>
 <form method="get" action="{% url 'employee_performance' %}" class="mb-3">
     <label for="exam_count">Filter by Number of Exams:</label>
     <select name="exam_count" id="exam_count" class="form-control" onchange="this.form.submit()">

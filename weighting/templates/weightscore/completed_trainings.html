@@ -1,0 +1,36 @@
+{% extends 'weightscore/Layout.html' %}
+
+{% block body %}
+    <h1>Completed Trainings</h1>
+
+    {% for employee, trainings in employee_trainings.items %}
+        <h2>{{ employee.name }}</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Training Module</th>
+                    <th>Date Completed</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for training in trainings %}
+                    <tr>
+                        <td>{% if training.training_module %}
+                            {{ training.training_module.name }}
+                        {% else %}
+                            No training module found
+                        {% endif %}
+                    </td>
+                        <td>{{ training.date_completed|date:"d-M-Y" }}  </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="2">No completed trainings available.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% empty %}
+        <p>No employees found.</p>
+    {% endfor %}
+{% endblock %}

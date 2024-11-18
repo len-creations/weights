@@ -44,4 +44,12 @@
         <button type="submit" class="btn btn-primary">Upload Training modules</button>
     </form>
 </div>
+<form method="post" action="{% url 'get_completed_trainings' %}" enctype="multipart/form-data" class="mt-3">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="Completed_trainings_file">Completed Trainings:</label>
+        <input type="file" name="Completed_trainings_file" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Upload Completed trainings file</button>
+</form>
 {% endblock %}

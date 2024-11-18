@@ -45,7 +45,7 @@ class TrainingModule(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     code = models.CharField(max_length=10, unique=True)
-    category = models.CharField(max_length=20, default="equipment")
+    category = models.CharField(max_length=20, default="EQUIPMENT MANUAL")
     file = models.FileField(upload_to='Training/uploads/', blank=True, null=True)
     facility=models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)

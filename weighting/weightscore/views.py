@@ -1,15 +1,17 @@
 from django.shortcuts import render,redirect
 from django.http import HttpResponse
-from .forms import UploadExamFilesForm,UploademployeeFilesForm,employeedetailsFilesForm,TrainingModuleForm
+from .forms import UploadExamFilesForm,UploademployeeFilesForm,employeedetailsFilesForm,TrainingModuleForm,CompletedTrainingModuleForm
 import pandas as pd
-from .models import Exam, Employee, ExamScore
-from .forms import UploadExamFilesForm
+from datetime import datetime
+from django.utils.timezone import make_aware
+from .models import Exam, Employee, ExamScore,CompletedTraining
+from .forms import UploadExamFilesForm,TrainingModule
 from django.core.paginator import Paginator
 from django.db.models import Sum,Q
 from operator import itemgetter
-import logging
+from dateutil.parser import parse
 def index(request):
-    return render(request,'weightscore/addingdata.html')
+    return render(request,'weightscore/index.html')
 
 def extract_param_data(request):
     if request.method == 'POST':
@@ -151,12 +153,102 @@ def training_module_master_list(request):
             file = request.FILES['Training_module_file']
             df = pd.read_excel(file, sheet_name='Sheet1')
             df.columns = df.columns.str.strip()
-            print(df.columns)
-        
+
+            for _, row in df.iterrows():
+                # Create a TrainingModule instance for each row
+                module = TrainingModule(
+                    title=row['Module Title'], 
+                    code=row['CODE'], 
+                    category=row['Category'],
+                    facility=row['FACILITY'],  
+                )
+                module.save()
+
+            # Now, return after processing all rows
+            return render(request, 'weightscore/index.html', {'form': form, 'success': True})
+
+        else:
+            return render(request, 'weightscore/addingdata.html', {'form': form, 'error': 'Invalid form data'})
+
     else:
         form = TrainingModuleForm()
 
     return render(request, 'weightscore/addingdata.html', {'form': form})
+
+def get_completed_trainings(request):
+    if request.method == 'POST':
+        form = CompletedTrainingModuleForm(request.POST, request.FILES)
+        if form.is_valid():
+            file = request.FILES['Completed_trainings_file']
+            df = pd.read_excel(file, sheet_name='Sheet1')
+            df.columns = df.columns.str.strip()
+
+            # Extract training module columns (columns starting with 'LSME')
+            training_columns = [col for col in df.columns if col.startswith('LSME')]
+
+            # Process each row in the DataFrame
+            for _, row in df.iterrows():
+                # Get the employee using 'Staff number'
+                staff_number = row['Staff number']
+                try:
+                    employee = Employee.objects.get(staff_number=staff_number)
+                except Employee.DoesNotExist:
+                    # Skip if employee does not exist
+                    print(f"Employee with Staff Number {staff_number} does not exist")
+                    continue
+
+                for col in training_columns:
+                    date_completed = row[col]
+                    print(f"Raw data in column {col} for Staff Number {staff_number}: {date_completed}")
+                    if pd.isna(date_completed):  # Skip empty columns
+                        print(f"Skipping column {col} for Staff Number {staff_number}: No date provided")
+                        continue
+
+                    try:
+                        date_completed = parse(str(date_completed))  # Dynamically parse any valid date format
+                        date_completed = make_aware(date_completed)
+                    except (ValueError, TypeError):
+                         print(f"Unrecognized date format in column {col} for Staff Number {staff_number}: {date_completed}")
+                         continue
+
+                    # Extract training module code (text before the slash)
+                    code = col.split('/')[0]
+
+                    # Check if the training module exists
+                    try:
+                        training_module = TrainingModule.objects.get(code=code)
+                    except TrainingModule.DoesNotExist:
+                        print(f"Training Module with Code {code} does not exist")
+                        continue
+
+                    # Debugging statement to show the record being processed
+                    print(f"Saving record: Employee={employee}, Training Module={training_module}, Date={date_completed}")
+
+                    # Update or create the completed training record
+                    CompletedTraining.objects.update_or_create(
+                        employee=employee,
+                        training_module=training_module,
+                        defaults={'date_completed': date_completed}
+                    )
+    else:
+        form = CompletedTrainingModuleForm()
+
+    return render(request, 'weightscore/addingdata.html', {'form': form})
+def view_completed_trainings(request):
+    # Get all employees and their completed training records
+    completed_trainings = CompletedTraining.objects.select_related('employee', 'training_module').all()
+    # Group completed trainings by employee
+    employee_trainings = {}
+    for training in completed_trainings:
+        employee = training.employee
+        if employee not in employee_trainings:
+            employee_trainings[employee] = []
+        employee_trainings[employee].append(training)
+    employee_trainings.append({
+        
+    })
+    # Pass the data to the template
+    return render(request, 'weightscore/completed_trainings.html', {'employee_trainings': employee_trainings})
 
 def employee_performance(request):
     filter_exam_count = request.GET.get('exam_count')
@@ -202,29 +294,6 @@ def employee_performance(request):
             "filter_exam_count": filter_exam_count  
         })
 
-
-# def employee_performance(request):
-#     employees = Employee.objects.all()
-#     performance_data = []
-#     for employee in employees:
-#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
-#            performance_data.append({
-#             'employee': employee,
-#             'exam_scores': exam_scores,
-#             'total_weighted_score': total_weighted_score,
-#         })
-#     performance_data = sorted(performance_data, key=itemgetter('total_weighted_score'), reverse=True)      
-#     paginator = Paginator(performance_data, 10) 
-#     page = request.GET.get('page')
-#     performance_data = paginator.get_page(page)
-#     page_obj = paginator.get_page(page)
-#     return render(request, 'weightscore/index.html', {
-#          "page_obj": page_obj
-#     })
-
-
-       
 def search(request):
     query = request.GET.get('q', '')
     results = []
@@ -278,3 +347,25 @@ def search(request):
         }
 
     return render(request, 'weightscore/search.html', context)
+# def employee_performance(request):
+#     employees = Employee.objects.all()
+#     performance_data = []
+#     for employee in employees:
+#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
+#            performance_data.append({
+#             'employee': employee,
+#             'exam_scores': exam_scores,
+#             'total_weighted_score': total_weighted_score,
+#         })
+#     performance_data = sorted(performance_data, key=itemgetter('total_weighted_score'), reverse=True)      
+#     paginator = Paginator(performance_data, 10) 
+#     page = request.GET.get('page')
+#     performance_data = paginator.get_page(page)
+#     page_obj = paginator.get_page(page)
+#     return render(request, 'weightscore/index.html', {
+#          "page_obj": page_obj
+#     })
+
+
+       
