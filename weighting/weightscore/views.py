@@ -237,18 +237,38 @@ def get_completed_trainings(request):
 def view_completed_trainings(request):
     # Get all employees and their completed training records
     completed_trainings = CompletedTraining.objects.select_related('employee', 'training_module').all()
-    # Group completed trainings by employee
+
+    # If a search query is provided, filter by employee name or staff number
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        completed_trainings = completed_trainings.filter(
+            Q(employee__staff_number__icontains=search_query) | 
+            Q(employee__name__icontains=search_query) | 
+            Q(employee__Team__icontains=search_query) 
+        )
+
+    # Order by staff number
+    completed_trainings = completed_trainings.order_by('employee__staff_number')
+
+    # Paginate results (10 employees per page)
+    paginator = Paginator(completed_trainings, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Group completed trainings by employee for easier display
     employee_trainings = {}
-    for training in completed_trainings:
+    for training in page_obj:
         employee = training.employee
         if employee not in employee_trainings:
             employee_trainings[employee] = []
         employee_trainings[employee].append(training)
-    employee_trainings.append({
-        
-    })
+
     # Pass the data to the template
-    return render(request, 'weightscore/completed_trainings.html', {'employee_trainings': employee_trainings})
+    return render(request, 'weightscore/completed_trainings.html', {
+        'employee_trainings': employee_trainings,
+        'page_obj': page_obj,
+        'search_query': search_query
+    })
 
 def employee_performance(request):
     filter_exam_count = request.GET.get('exam_count')

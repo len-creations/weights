@@ -2,6 +2,7 @@ from django.db import models
 from datetime import date
 from django.utils import timezone
 from django.db.models import Count
+from datetime import timedelta
 # Create your models here.
 
 class Exam(models.Model):
@@ -59,6 +60,11 @@ class CompletedTraining(models.Model):
     employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='completed_trainings')
     training_module = models.ForeignKey('TrainingModule', on_delete=models.CASCADE, related_name='completed_by_profiles')
     date_completed = models.DateTimeField(default=timezone.now)
+
+    @property
+    def date_of_expiry(self):
+        """Return the expiry date as 2 years after the date completed."""
+        return self.date_completed + timedelta(days=730) 
 
     class Meta:
         unique_together = ('employee', 'training_module')
