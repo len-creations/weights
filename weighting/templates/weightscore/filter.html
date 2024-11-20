@@ -5,7 +5,7 @@
 <a href="{% url 'employee_performance' %}" class="btn btn-primary">Home</a>
 <form method="get" action="{% url 'employee_performance' %}" class="mb-3">
     <label for="exam_count">Filter by Number of Exams:</label>
-    <select name="exam_count" id="exam_count" class="form-control" onchange="this.form.submit()">
+    <select name="exam_count" id="exam_count" class="form-control">
         <option value="">Select Number of Exams</option>
         {% for i in 16|to %}
             <option value="{{ i }}" {% if filter_exam_count == i|stringformat:"s" %}selected{% endif %}>
@@ -13,10 +13,35 @@
             </option>
         {% endfor %}
     </select>
+
+    <label for="month">Filter by Month:</label>
+    <select name="month" id="month" class="form-control">
+        <option value="">Select Month</option>
+        {% for month in months %}
+            <option value="{{ forloop.counter }}" {% if filter_month|default:'' == forloop.counter|stringformat:"s" %}selected{% endif %}>
+                {{ month }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="year">Filter by Year:</label>
+    <select name="year" id="year" class="form-control">
+        <option value="">Select Year</option>
+        {% for year in years %}
+            <option value="{{ year }}" {% if filter_year|default:'' == year|stringformat:"s" %}selected{% endif %}>
+                {{ year }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <!-- Add a submit button -->
+    <button type="submit" class="btn btn-primary mt-3">Apply Filters</button>
 </form>
+
 <table class="table table-striped">
     <thead>
         <tr>
+            <th>Serial No.</th> 
             <th>Name</th>
             <th>Staff Number</th>
             <th>Total Weighted Score</th>
@@ -29,6 +54,7 @@
     <tbody>
         {% for performance in page_obj %}
             <tr>
+                <td rowspan="{{ performance.exam_scores.count|default:1}}" class="align-middle">{{ forloop.counter }}</td>
                 <td rowspan="{{ performance.exam_scores.count|default:1}}" class="align-middle">{{ performance.employee.name }}</td>
                 <td rowspan="{{ performance.exam_scores.count|default:1 }}" class="align-middle">{{ performance.employee.staff_number }}</td>
                 <td rowspan="{{performance.exam_scores.count|default:1}}" class="align-middle text-center">{{ performance.total_weighted_score|floatformat:2 }}</td>

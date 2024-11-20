@@ -1,17 +1,45 @@
-from django.shortcuts import render,redirect
+from django.shortcuts import render,get_object_or_404,redirect
 from django.http import HttpResponse
-from .forms import UploadExamFilesForm,UploademployeeFilesForm,employeedetailsFilesForm,TrainingModuleForm,CompletedTrainingModuleForm
+from .forms import UploadExamFilesForm,UploademployeeFilesForm,employeedetailsFilesForm,TrainingModuleForm,CompletedTrainingModuleForm,CompletedTrainingForm,ExamScoreForm
 import pandas as pd
 from datetime import datetime
 from django.utils.timezone import make_aware
-from .models import Exam, Employee, ExamScore,CompletedTraining
-from .forms import UploadExamFilesForm,TrainingModule
+from .models import Exam, Employee, ExamScore,CompletedTraining,TrainingModule
 from django.core.paginator import Paginator
 from django.db.models import Sum,Q
+from django.contrib import messages
 from operator import itemgetter
 from dateutil.parser import parse
+import calendar
+from .forms import CompletedTrainingForm, ExamScoreForm
+
 def index(request):
-    return render(request,'weightscore/index.html')
+   employees=Employee.objects.all().order_by('staff_number')
+   return render(request,'weightscore/index2.html',{'employees': employees})
+def add_completed_training(request):
+    if request.method == 'POST':
+        form = CompletedTrainingForm(request.POST)
+        if form.is_valid():
+            completed_training = form.save(commit=False)
+            # For the `CharField` approach, set the employee manually
+            if isinstance(form.cleaned_data['employee'], Employee):
+                completed_training.employee = form.cleaned_data['employee']
+            completed_training.save()
+            return redirect('completed_training_list') 
+    else:
+        form = CompletedTrainingForm()
+    return render(request, 'weightscore/add_completed_training.html', {'form': form})
+
+def add_exam_score(request):
+    if request.method == 'POST':
+        form = ExamScoreForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Exam score added successfully.')
+            return redirect('add_exam_score')
+    else:
+        form = ExamScoreForm()
+    return render(request, 'weightscore/add_completed_training.html', {'form': form})
 
 def extract_param_data(request):
     if request.method == 'POST':
@@ -53,6 +81,7 @@ def extract_employee_data(request):
             df.columns = df.columns.str.strip() 
             # Print the column names to inspect for any spaces or formatting issues
             # print(df.columns)
+            default_date = pd.to_datetime('1-Nov-2023').date()
             exam_names_in_db = Exam.objects.values_list('exam_name', flat=True)
 
             for _, row in df.iterrows():
@@ -60,7 +89,15 @@ def extract_employee_data(request):
                 employee_name = row['Employee Name']
                 facility = row['Facility']
                 team = row['Team']
-                exam_date = pd.to_datetime(row['date'], format='%d-%mmm-%yyyy').date() 
+                # exam_date = pd.to_datetime(row['date'], format='%d-%mmm-%yyyy').date()
+                if pd.isna(row['date']):  # Check for missing values
+                    exam_date = default_date
+                else:
+                    try:
+                        exam_date = pd.to_datetime(row['date']).date()  # Parse the date as is
+                    except Exception:
+                        # Fallback to default date for any unexpected errors
+                        exam_date = default_date
 
                 employee, created = Employee.objects.update_or_create(
                     staff_number=staff_number,
@@ -89,7 +126,7 @@ def extract_employee_data(request):
                             print(f"Exam {exam_name} not found in database!")
                             continue 
                         # Create the ExamScore object
-                        print(score)
+                        # print(score)
                         ExamScore.objects.update_or_create(
                             employee=employee,
                             exam=exam,
@@ -234,6 +271,16 @@ def get_completed_trainings(request):
         form = CompletedTrainingModuleForm()
 
     return render(request, 'weightscore/addingdata.html', {'form': form})
+
+def employee_trainings(request, employee_id):
+   
+    employee = get_object_or_404(Employee, pk=employee_id)
+    completed_trainings = employee.completed_trainings.all()
+    
+    return render(request, 'weightscore/Completed_training_details.html', {
+        'employee': employee,
+        'completed_trainings': completed_trainings,
+    })
 def view_completed_trainings(request):
     # Get all employees and their completed training records
     completed_trainings = CompletedTraining.objects.select_related('employee', 'training_module').all()
@@ -273,11 +320,19 @@ def view_completed_trainings(request):
 def employee_performance(request):
     filter_exam_count = request.GET.get('exam_count')
     employees = Employee.objects.all()
+    filter_year = request.GET.get('year')
+    filter_month = request.GET.get('month')
+
 
     performance_data = []
     for employee in employees:
         # Get the exam scores for the employee (filtering for exams with a score greater than 1)
         exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+
+        if filter_year:
+            exam_scores = exam_scores.filter(exam_date__year=int(filter_year))
+        if filter_month:
+            exam_scores = exam_scores.filter(exam_date__month=int(filter_month))
         
         # If a filter is provided, only consider employees with the specified number of exams
         if filter_exam_count:
@@ -308,18 +363,26 @@ def employee_performance(request):
             "filter_exam_count": filter_exam_count  
         })
     else:
+
+        months = list(calendar.month_name)[1:] 
+        current_year = datetime.now().year
+        years = range(current_year - 10, current_year + 1)   
         # If no filter is applied, render the index page
         return render(request, 'weightscore/index.html', {
             "page_obj": performance_data,
-            "filter_exam_count": filter_exam_count  
+            "filter_exam_count": filter_exam_count,
+            "filter_month": request.GET.get('month', ''),
+           "filter_year": request.GET.get('year', ''),
+           "months": months,
+           "years": years,  
         })
-
 def search(request):
     query = request.GET.get('q', '')
+    filter_month = request.GET.get('month', '')
+    filter_year = request.GET.get('year', '')
     results = []
 
     if query:
-        # Search employees based on query (name, staff number, or team)
         employee_results = Employee.objects.filter(
             Q(name__icontains=query) | 
             Q(staff_number__icontains=query) | 
@@ -327,46 +390,96 @@ def search(request):
         )
 
         for employee in employee_results:
-            # Fetch exam scores for the employee where score > 1
             exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-            
-            # Calculate total weighted score
+
+            # Apply month and year filters
+            if filter_year:
+                exam_scores = exam_scores.filter(exam_date__year=int(filter_year))
+            if filter_month:
+                exam_scores = exam_scores.filter(exam_date__month=int(filter_month))
+
             total_weighted_score = exam_scores.aggregate(
                 total_weighted_score=Sum('weighted_score')
             )['total_weighted_score'] or 0
 
-            # If there are no exam scores, add a default set of values
-            if not exam_scores:
-                exam_scores = [{
-                    'exam_name': 'None',
-                    'score': 0,
-                    'weighted_score': 0,
-                    'exam_date': 'N/A'
-                }]
-            
             results.append({
                 'employee': employee,
                 'exam_scores': exam_scores,
-                'total_weighted_score': total_weighted_score
+                'total_weighted_score': total_weighted_score,
             })
-        
-        # Paginate the results if there are many
-        paginator = Paginator(results, 10)
-        page = request.GET.get('page')
-        results_page = paginator.get_page(page)
 
-        context = {
-            'query': query,
-            'results': results_page,
-        }
+    # Generate month and year dropdown data
+    months = list(calendar.month_name)[1:]
+    current_year = datetime.now().year
+    years = range(current_year - 10, current_year + 1)
 
-    else:
-        context = {
-            'query': '',
-            'results': results,
-        }
+    paginator = Paginator(results, 10)
+    page = request.GET.get('page')
+    results_page = paginator.get_page(page)
+
+    context = {
+        'query': query,
+        'filter_month': filter_month,
+        'filter_year': filter_year,
+        'months': months,
+        'years': years,
+        'results': results_page,
+    }
 
     return render(request, 'weightscore/search.html', context)
+# def search(request):
+#     query = request.GET.get('q', '')
+#     results = []
+
+#     if query:
+#         # Search employees based on query (name, staff number, or team)
+#         employee_results = Employee.objects.filter(
+#             Q(name__icontains=query) | 
+#             Q(staff_number__icontains=query) | 
+#             Q(Team__icontains=query)
+#         )
+
+#         for employee in employee_results:
+#             # Fetch exam scores for the employee where score > 1
+#             exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
+            
+#             # Calculate total weighted score
+#             total_weighted_score = exam_scores.aggregate(
+#                 total_weighted_score=Sum('weighted_score')
+#             )['total_weighted_score'] or 0
+
+#             # If there are no exam scores, add a default set of values
+#             if not exam_scores:
+#                 exam_scores = [{
+#                     'exam_name': 'None',
+#                     'score': 0,
+#                     'weighted_score': 0,
+#                     'exam_date': 'N/A'
+#                 }]
+            
+#             results.append({
+#                 'employee': employee,
+#                 'exam_scores': exam_scores,
+#                 'total_weighted_score': total_weighted_score
+#             })
+        
+#         # Paginate the results if there are many
+#         paginator = Paginator(results, 10)
+#         page = request.GET.get('page')
+#         results_page = paginator.get_page(page)
+
+#         context = {
+#             'query': query,
+#             'results': results_page,
+#         }
+
+#     else:
+#         context = {
+#             'query': '',
+#             'results': results,
+#         }
+
+#     return render(request, 'weightscore/search.html', context)
 # def employee_performance(request):
 #     employees = Employee.objects.all()
 #     performance_data = []

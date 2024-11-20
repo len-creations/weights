@@ -4,6 +4,9 @@
     <input type="text" name="q" class="form-control me-2" placeholder="Search by Staff Number, Name, or Team" value="{{ query }}">
     <button type="submit" class="btn btn-primary">Search</button>
 </form>
+<div>
+    <a href="{% url 'index' %}" class="btn btn-primary">Home</a>
+    </div>
 <table class="table table-striped">
     <thead>
         <tr>
@@ -51,5 +54,5 @@
         <a href="?q={{ query }}&page={{ results.paginator.num_pages }}">Last</a>
     {% endif %}
 </div>
-<a href="{% url 'employee_performance' %}" class="btn btn-primary">Home</a>
+<a href="{% url 'index' %}" class="btn btn-primary">Home</a>
 {% endblock %}

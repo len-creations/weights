@@ -1,0 +1,32 @@
+{% extends 'weightscore/Layout.html' %}
+
+{% block body %}
+    <h3>{{ employee.name }}'s Completed Trainings</h3>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Sr No.</th>
+                <th>Training Module</th>
+                <th>Date Completed</th>
+                <th>Expiry Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for training in completed_trainings %}
+                <tr>
+                   <td> {{ forloop.counter }}</td>
+                    <td>{{ training.training_module.title}}</td>
+                    <td>{{ training.date_completed }}</td>
+                    <td>{{ training.date_of_expiry }}</td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="3">No completed trainings found for this employee.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{% url 'index' %}">Back to Employee List</a>
+{% endblock %}

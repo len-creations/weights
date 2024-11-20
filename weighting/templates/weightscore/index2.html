@@ -1,0 +1,41 @@
+{% extends 'weightscore/Layout.html' %}
+{% block body %}
+<form method="get" action="{% url 'view_completed_trainings' %}" class="search">
+    <input type="text" name="search" placeholder="Search by Staff Number ,Name or Team " value="{{ search_query }}" class="search-input">
+    <button type="submit" class="search-button">Search</button>
+</form>
+<a href="{% url 'add_completed_training' %}">add trainings</a>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Serial No.</th> 
+            <th>Name</th>
+            <th>Staff Number</th>
+            <th>designation</th>
+            <th>Team</th>
+            <th>Facility</th>
+            <th>completed trainings</th>
+        </tr>
+    </thead>
+    <tbody>
+       
+        {% for employee in employees %}
+        <tr>
+            <td>{{ forloop.counter }}</td>
+            <td><a href="{% url 'employee_trainings' employee.id %}">{{ employee.name }}</a></td>
+            <td>{{ employee.staff_number }}</td>
+            <td>{{ employee.designation }}</td>
+            <td>{{ employee.Team}}</td>
+            <td>{{ employee.Facility}}</td>
+            <td>{{employee.count_completed_trainings}}</td>
+        </tr>
+
+    {% empty %}
+    <tr>
+        <td colspan="7">No employees found.</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+
+
+{% endblock %}

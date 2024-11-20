@@ -2,13 +2,12 @@
 
 {% block body %}
     <h2>Completed Trainings</h2>
-
     <!-- Search Bar -->
     <form method="get" action="{% url 'view_completed_trainings' %}" class="search">
         <input type="text" name="search" placeholder="Search by Staff Number ,Name or Team " value="{{ search_query }}" class="search-input">
         <button type="submit" class="search-button">Search</button>
     </form>
-
+    <a href="{% url 'index' %}" class="btn btn-primary">Home</a>
     {% if employee_trainings %}
     <div class="employee-trainings-container">
         {% for employee, trainings in employee_trainings.items %}
@@ -19,7 +18,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Serial No.</th> 
+                        <th>Serial No</th> 
                         <th>Training Module</th>
                         <th>Date Completed</th>
                         <th>Date of Expiry</th>
