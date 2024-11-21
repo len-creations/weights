@@ -2,18 +2,17 @@
 {% block body %}
 
     <h2>Add Completed Training</h2>
+    <div id="form-container">
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit" class="btn btn-primary">Save</button>
     </form>
-    
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Save</button>
-    </form>
-
+</div><script>
+    const lastEmployeeData = JSON.parse('{{ last_employee_json|escapejs }}');
+    const lastTrainingModuleData = JSON.parse('{{ last_training_module_json|escapejs }}');
+</script>
+<div id="last-input-message" style="display: none; margin-top: 20px; padding: 10px; border: 1px solid #ddd; background-color: #f9f9f9;"></div>
     <a href="{% url 'index' %}">Back to Home</a>
 
 {% endblock %}

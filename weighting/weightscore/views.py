@@ -11,24 +11,72 @@ from django.contrib import messages
 from operator import itemgetter
 from dateutil.parser import parse
 import calendar
+from django.core.serializers.json import DjangoJSONEncoder
+import json
 from .forms import CompletedTrainingForm, ExamScoreForm
 
 def index(request):
    employees=Employee.objects.all().order_by('staff_number')
    return render(request,'weightscore/index2.html',{'employees': employees})
+
 def add_completed_training(request):
     if request.method == 'POST':
         form = CompletedTrainingForm(request.POST)
         if form.is_valid():
-            completed_training = form.save(commit=False)
-            # For the `CharField` approach, set the employee manually
-            if isinstance(form.cleaned_data['employee'], Employee):
-                completed_training.employee = form.cleaned_data['employee']
-            completed_training.save()
-            return redirect('completed_training_list') 
+            # Get the validated employee and training module
+            employee = form.cleaned_data['employee_input']
+            training_module = form.cleaned_data['training_module']
+            date_completed = form.cleaned_data['date_completed']
+
+            # Check if the record already exists
+            completed_training = CompletedTraining.objects.filter(
+                employee=employee, training_module=training_module
+            ).first()
+
+            if completed_training:
+                # Update the existing record
+                completed_training.date_completed = date_completed
+                completed_training.save()
+                form.add_error(
+                    None, 
+                    f'This employee has already completed this training module. The completion date has been updated to {date_completed}.'
+                )
+            else:
+                # Create a new record
+                completed_training = form.save(commit=False)
+                completed_training.employee = employee
+                completed_training.save()
+
+            # Store last entries in the session
+            request.session['last_employee'] = {
+                "id": employee.id,
+                "name": employee.name,
+                "staff_number": employee.staff_number,
+            }
+            request.session['last_training_module'] = {
+                "id": training_module.id,
+                "name": training_module.title,
+                "description": training_module.description,
+            }
+            request.session['last_date_completed'] = str(date_completed)
+
+            return redirect('add_completed_training')
     else:
         form = CompletedTrainingForm()
-    return render(request, 'weightscore/add_completed_training.html', {'form': form})
+
+    # Prepare the data for JavaScript
+    last_employee = request.session.get('last_employee', None)
+    last_training_module = request.session.get('last_training_module', None)
+    last_date_completed = request.session.get('last_date_completed', None)
+
+    context = {
+        'form': form,
+        'last_employee_json': json.dumps(last_employee, cls=DjangoJSONEncoder),
+        'last_training_module_json': json.dumps(last_training_module, cls=DjangoJSONEncoder),
+        'last_date_completed': last_date_completed
+    }
+    print(context)
+    return render(request, 'weightscore/add_completed_training.html', context)
 
 def add_exam_score(request):
     if request.method == 'POST':
@@ -39,7 +87,7 @@ def add_exam_score(request):
             return redirect('add_exam_score')
     else:
         form = ExamScoreForm()
-    return render(request, 'weightscore/add_completed_training.html', {'form': form})
+    return render(request, 'weightscore/add_examscore.html', {'form': form})
 
 def extract_param_data(request):
     if request.method == 'POST':

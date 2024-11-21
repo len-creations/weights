@@ -1,6 +1,6 @@
 from django import forms
 from .models import CompletedTraining, ExamScore,Employee
-
+from django.db.models import Q
 class UploadExamFilesForm(forms.Form):
     exam_parameters_file = forms.FileField(label="Exam Parameters File")
     
@@ -17,10 +17,10 @@ class CompletedTrainingModuleForm(forms.Form):
     Completed_trainings_file=forms.FileField(label="Completed trainings")
 
 class CompletedTrainingForm(forms.ModelForm):
-    employee = forms.CharField(
+    employee_input = forms.CharField(
         required=True,
         label="Employee",
-        widget=forms.TextInput(attrs={'placeholder': 'Type employee name or staff number...'})
+        widget=forms.TextInput(attrs={'placeholder': 'Type employee staff number or name ...'})
     )
 
     class Meta:
@@ -30,16 +30,25 @@ class CompletedTrainingForm(forms.ModelForm):
             'date_completed': forms.DateInput(attrs={'type': 'date'}),
         }
 
-    def clean_employee(self):
-        employee_input = self.cleaned_data.get('employee')
+    def clean_employee_input(self):
+        employee_input = self.cleaned_data.get('employee_input').strip()
+        print(f"Input received: '{employee_input}'")  # Debugging line
         try:
             employee = Employee.objects.get(
-                name__icontains=employee_input
-            )  # You can expand this with other fields like staff_number
+                Q(name__iexact=employee_input) | Q(staff_number__iexact=employee_input)
+            )
             return employee
         except Employee.DoesNotExist:
-            raise forms.ValidationError("No matching employee found. Please check the input.")
-        
+            print("Exact match not found, attempting partial match.")
+            try:
+                employee = Employee.objects.get(
+                    Q(name__icontains=employee_input) | Q(staff_number__icontains=employee_input)
+                )
+                return employee
+            except Employee.DoesNotExist:
+                print("No matching employee found.")
+                raise forms.ValidationError("No matching employee found. Please check the input.")
+            
 class ExamScoreForm(forms.ModelForm):
     class Meta:
         model = ExamScore
