@@ -123,3 +123,54 @@ td {
     text-align: center;
     margin-bottom: 15px;
 }
+
+.content-container {
+    display: none;   /* Hidden by default */
+    margin-top: 20px; 
+    padding: 10px; 
+    border-radius: 5px;
+    background-color: #f8d7da;  
+    color: #f1a3ab;  /* Dark red text */
+    border: 1px solid #f5c6cb;  /* Soft red border */
+    font-family: Arial, sans-serif;
+}
+
+.content-container .new-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #f3ebeb; 
+    border: 1px solid #f4f0f1;  
+    border-radius: 5px; 
+    color: #721c24;  
+}
+
+.content-container.show {
+    display: block;  /* Make container visible when the 'show' class is added */
+}
+
+.content-container .close-btn {
+    background-color: transparent;
+    color: #c61c2a;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    float: right;
+}
+.progress-container {
+    width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.progress-bar {
+    height: 20px;
+    border-radius: 8px;
+    text-align: center;
+    color: white;
+    line-height: 20px;
+}
+
+.progress-text {
+    font-weight: bold;
+}

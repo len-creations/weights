@@ -12,7 +12,8 @@
     <div class="employee-trainings-container">
         {% for employee, trainings in employee_trainings.items %}
         <div class="employee-summary">
-            <h2>{{ employee.name }} ({{ employee.staff_number }}) {{ employee.Team }}</h2>
+            <a href="{% url 'employee_trainings' employee.id %}">
+            <h2>{{ employee.name }} ({{ employee.staff_number }}) {{ employee.Team }}</h2></a>
             <p><strong>Total Trainings: </strong>{{ trainings|length }}</p>
         </div>
             <table>

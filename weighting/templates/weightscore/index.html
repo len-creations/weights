@@ -53,6 +53,7 @@
             <th>Name</th>
             <th>Staff Number</th>
             <th>Total Weighted Score</th>
+            <th>Average Score</th>
             <th>Exam</th>
             <th>Score</th>
             <th>Weighted Score</th>
@@ -66,6 +67,13 @@
                 <td rowspan="{{ performance.exam_scores.count|default:1}}" class="align-middle">{{ performance.employee.name }}</td>
                 <td rowspan="{{ performance.exam_scores.count|default:1 }}" class="align-middle">{{ performance.employee.staff_number }}</td>
                 <td rowspan="{{performance.exam_scores.count|default:1}}" class="align-middle text-center">{{ performance.total_weighted_score|floatformat:2 }}</td>
+                <td rowspan="{{ performance.exam_scores.count|default:1 }}" class="align-middle text-center">
+                    {% if performance.average_score %}
+                        {{ performance.average_score|floatformat:2 }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
                 {% for exam_score in performance.exam_scores %}
                     <td>{{ exam_score.exam.exam_name }}</td>
                     <td>{{ exam_score.score|floatformat:2 }}%</td> 
@@ -80,6 +88,20 @@
         {% endfor %}
     </tbody>
 </table>
-
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if filter_exam_count %}&exam_count={{ filter_exam_count }}{% endif %}{% if filter_year %}&year={{ filter_year }}{% endif %}{% if filter_month %}&month={{ filter_month }}{% endif %}">&laquo; first</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if filter_exam_count %}&exam_count={{ filter_exam_count }}{% endif %}{% if filter_year %}&year={{ filter_year }}{% endif %}{% if filter_month %}&month={{ filter_month }}{% endif %}">previous</a>
+        {% endif %}
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+        </span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if filter_exam_count %}&exam_count={{ filter_exam_count }}{% endif %}{% if filter_year %}&year={{ filter_year }}{% endif %}{% if filter_month %}&month={{ filter_month }}{% endif %}">next</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if filter_exam_count %}&exam_count={{ filter_exam_count }}{% endif %}{% if filter_year %}&year={{ filter_year }}{% endif %}{% if filter_month %}&month={{ filter_month }}{% endif %}">last &raquo;</a>
+        {% endif %}
+    </span>
+</div>  
 
 {% endblock %}

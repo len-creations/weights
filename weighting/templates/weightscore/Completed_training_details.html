@@ -2,7 +2,14 @@
 
 {% block body %}
     <h3>{{ employee.name }}'s Completed Trainings</h3>
-
+    <div id="employee-id" data-employee-id="{{ employee_id }}"></div>
+    <div class="progress-container">
+        <div class="progress-bar">
+            <span class="progress-text">{{ progress_percentage|floatformat:2 }}%</span>
+        </div>
+      
+    </div>
+    
     <table class="table table-striped">
         <thead>
             <tr>

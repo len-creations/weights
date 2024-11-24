@@ -20,15 +20,21 @@ class Employee(models.Model):
     Team=models.CharField(max_length=100)
     designation=models.CharField(max_length=100,default="Technician")
     Facility=models.CharField(max_length=100)
+    Required_Module_trainings=models.IntegerField(default=18)
+    Required_exams=models.IntegerField(default=14)
 
     def __str__(self):
         return self.name
     def count_completed_trainings(self):
         """Returns the count of completed trainings employee."""
         return self.completed_trainings.filter(date_completed__isnull=False).count()
+    def count_completed_Exams(self):
+        """Returns the count of completed exams for employee."""
+        return self.completed_Exams.filter(exam_date__isnull=False).count()
+ 
 
 class ExamScore(models.Model):
-    employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
+    employee = models.ForeignKey(Employee, on_delete=models.CASCADE,related_name='completed_Exams')
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
     score = models.FloatField()
     weighted_score = models.FloatField(null=True, blank=True)
@@ -38,6 +44,7 @@ class ExamScore(models.Model):
         # Calculate weighted score as score * weight from associated exam
         self.weighted_score = self.score * self.exam.weight
         super().save(*args, **kwargs)
+   
 
     def __str__(self):
         return f"{self.employee.name} - {self.exam.exam_name}"
@@ -60,6 +67,7 @@ class CompletedTraining(models.Model):
     employee = models.ForeignKey('Employee', on_delete=models.CASCADE, related_name='completed_trainings')
     training_module = models.ForeignKey('TrainingModule', on_delete=models.CASCADE, related_name='completed_by_profiles')
     date_completed = models.DateTimeField(default=timezone.now)
+    # user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     @property
     def date_of_expiry(self):

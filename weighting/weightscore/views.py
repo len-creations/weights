@@ -6,13 +6,14 @@ from datetime import datetime
 from django.utils.timezone import make_aware
 from .models import Exam, Employee, ExamScore,CompletedTraining,TrainingModule
 from django.core.paginator import Paginator
-from django.db.models import Sum,Q
+from django.db.models import Sum,Q,Avg
 from django.contrib import messages
 from operator import itemgetter
 from dateutil.parser import parse
 import calendar
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+from django.http import JsonResponse
 from .forms import CompletedTrainingForm, ExamScoreForm
 
 def index(request):
@@ -20,6 +21,7 @@ def index(request):
    return render(request,'weightscore/index2.html',{'employees': employees})
 
 def add_completed_training(request):
+    # For POST request handling (form submission)
     if request.method == 'POST':
         form = CompletedTrainingForm(request.POST)
         if form.is_valid():
@@ -47,7 +49,7 @@ def add_completed_training(request):
                 completed_training.employee = employee
                 completed_training.save()
 
-            # Store last entries in the session
+            # Store last entries in the session (optional if needed for other purposes)
             request.session['last_employee'] = {
                 "id": employee.id,
                 "name": employee.name,
@@ -64,18 +66,25 @@ def add_completed_training(request):
     else:
         form = CompletedTrainingForm()
 
-    # Prepare the data for JavaScript
-    last_employee = request.session.get('last_employee', None)
-    last_training_module = request.session.get('last_training_module', None)
-    last_date_completed = request.session.get('last_date_completed', None)
+    # Check if the request is AJAX by inspecting headers
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        last_employee = request.session.get('last_employee', None)
+        last_training_module = request.session.get('last_training_module', None)
+        last_date_completed = request.session.get('last_date_completed', None)
 
+        # Create the response data
+        response_data = {
+            'last_employee': last_employee if last_employee else {},
+            'last_training_module': last_training_module if last_training_module else {},
+            'last_date_completed': last_date_completed or "",
+        }
+        
+        return JsonResponse(response_data)
+
+    # If it's a normal GET request (page load), render the page with the form
     context = {
         'form': form,
-        'last_employee_json': json.dumps(last_employee, cls=DjangoJSONEncoder),
-        'last_training_module_json': json.dumps(last_training_module, cls=DjangoJSONEncoder),
-        'last_date_completed': last_date_completed
     }
-    print(context)
     return render(request, 'weightscore/add_completed_training.html', context)
 
 def add_exam_score(request):
@@ -324,11 +333,26 @@ def employee_trainings(request, employee_id):
    
     employee = get_object_or_404(Employee, pk=employee_id)
     completed_trainings = employee.completed_trainings.all()
+    completed_trainings_count = employee.count_completed_trainings() 
+    required_trainings = employee.Required_Module_trainings
+    progress_percentage = (completed_trainings_count / required_trainings) * 100 if required_trainings else 0
     
     return render(request, 'weightscore/Completed_training_details.html', {
         'employee': employee,
+        'employee_id': employee_id,
         'completed_trainings': completed_trainings,
+        'progress_percentage': progress_percentage,
     })
+
+def employee_trainings_progress(request,employee_id):
+    # Fetch the employee training progress as JSON data
+    employee = get_object_or_404(Employee, pk=employee_id)
+    completed_trainings_count = employee.count_completed_trainings()
+    required_trainings = employee.Required_Module_trainings
+    progress_percentage = (completed_trainings_count / required_trainings) * 100 if required_trainings else 0
+    
+    return JsonResponse({'progress_percentage': progress_percentage})
+
 def view_completed_trainings(request):
     # Get all employees and their completed training records
     completed_trainings = CompletedTraining.objects.select_related('employee', 'training_module').all()
@@ -371,12 +395,11 @@ def employee_performance(request):
     filter_year = request.GET.get('year')
     filter_month = request.GET.get('month')
 
-
     performance_data = []
     for employee in employees:
         # Get the exam scores for the employee (filtering for exams with a score greater than 1)
         exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-
+        average_score = exam_scores.aggregate(avg_score=Avg('score'))['avg_score'] or 0
         if filter_year:
             exam_scores = exam_scores.filter(exam_date__year=int(filter_year))
         if filter_month:
@@ -393,6 +416,7 @@ def employee_performance(request):
         performance_data.append({
             'employee': employee,
             'exam_scores': exam_scores,
+            'average_score': average_score,
             'total_weighted_score': total_weighted_score,
         })
 
@@ -475,78 +499,3 @@ def search(request):
     }
 
     return render(request, 'weightscore/search.html', context)
-# def search(request):
-#     query = request.GET.get('q', '')
-#     results = []
-
-#     if query:
-#         # Search employees based on query (name, staff number, or team)
-#         employee_results = Employee.objects.filter(
-#             Q(name__icontains=query) | 
-#             Q(staff_number__icontains=query) | 
-#             Q(Team__icontains=query)
-#         )
-
-#         for employee in employee_results:
-#             # Fetch exam scores for the employee where score > 1
-#             exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-            
-#             # Calculate total weighted score
-#             total_weighted_score = exam_scores.aggregate(
-#                 total_weighted_score=Sum('weighted_score')
-#             )['total_weighted_score'] or 0
-
-#             # If there are no exam scores, add a default set of values
-#             if not exam_scores:
-#                 exam_scores = [{
-#                     'exam_name': 'None',
-#                     'score': 0,
-#                     'weighted_score': 0,
-#                     'exam_date': 'N/A'
-#                 }]
-            
-#             results.append({
-#                 'employee': employee,
-#                 'exam_scores': exam_scores,
-#                 'total_weighted_score': total_weighted_score
-#             })
-        
-#         # Paginate the results if there are many
-#         paginator = Paginator(results, 10)
-#         page = request.GET.get('page')
-#         results_page = paginator.get_page(page)
-
-#         context = {
-#             'query': query,
-#             'results': results_page,
-#         }
-
-#     else:
-#         context = {
-#             'query': '',
-#             'results': results,
-#         }
-
-#     return render(request, 'weightscore/search.html', context)
-# def employee_performance(request):
-#     employees = Employee.objects.all()
-#     performance_data = []
-#     for employee in employees:
-#            exam_scores = ExamScore.objects.filter(employee=employee, score__gt=1)
-#            total_weighted_score = exam_scores.aggregate(total_weighted_score=Sum('weighted_score'))['total_weighted_score'] or 0
-#            performance_data.append({
-#             'employee': employee,
-#             'exam_scores': exam_scores,
-#             'total_weighted_score': total_weighted_score,
-#         })
-#     performance_data = sorted(performance_data, key=itemgetter('total_weighted_score'), reverse=True)      
-#     paginator = Paginator(performance_data, 10) 
-#     page = request.GET.get('page')
-#     performance_data = paginator.get_page(page)
-#     page_obj = paginator.get_page(page)
-#     return render(request, 'weightscore/index.html', {
-#          "page_obj": page_obj
-#     })
-
-
-       

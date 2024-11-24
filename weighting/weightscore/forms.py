@@ -32,7 +32,7 @@ class CompletedTrainingForm(forms.ModelForm):
 
     def clean_employee_input(self):
         employee_input = self.cleaned_data.get('employee_input').strip()
-        print(f"Input received: '{employee_input}'")  # Debugging line
+        print(f"Input received: '{employee_input}'")
         try:
             employee = Employee.objects.get(
                 Q(name__iexact=employee_input) | Q(staff_number__iexact=employee_input)
